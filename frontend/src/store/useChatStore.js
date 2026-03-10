@@ -6,10 +6,12 @@ import { useAuthStore } from "./useAuthStore";
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
+  onlineUsers: [],   // ✅ added
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
 
+  // ---------------- USERS ----------------
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
@@ -22,6 +24,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ---------------- MESSAGES ----------------
   getMessages: async (userId) => {
     set({ isMessagesLoading: true });
     try {
@@ -51,6 +54,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ---------------- SOCKET: NEW MESSAGES ----------------
   subscribeToMessages: () => {
     const { selectedUser } = get();
     if (!selectedUser) return;
@@ -58,7 +62,6 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
-    // Prevent duplicate listeners
     socket.off("newMessage");
 
     socket.on("newMessage", (newMessage) => {
@@ -78,5 +81,21 @@ export const useChatStore = create((set, get) => ({
     socket?.off("newMessage");
   },
 
+  // ---------------- SOCKET: ONLINE USERS ----------------
+  subscribeToOnlineUsers: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    socket.on("getOnlineUsers", (users) => {
+      set({ onlineUsers: users });
+    });
+  },
+
+  unsubscribeFromOnlineUsers: () => {
+    const socket = useAuthStore.getState().socket;
+    socket?.off("getOnlineUsers");
+  },
+
+  // ---------------- UI ----------------
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 }));
