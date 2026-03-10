@@ -1,41 +1,54 @@
-# Stage 1: Build
+# -----------------------------
+# Stage 1: Build Stage
+# -----------------------------
+
+# Use Node.js 18 with Alpine Linux (lightweight image)
+# This stage will be used to install dependencies and prepare the app
 FROM node:18-alpine AS builder
 
-# Set working directory
+# Set the working directory inside the container
+# All commands after this will run inside /app
 WORKDIR /app
 
-# Install dependencies
+# Copy dependency files first (improves Docker caching)
+# If package.json doesn't change, Docker won't reinstall dependencies
 COPY package.json package-lock.json ./
+
+# Install only production dependencies
+# npm ci ensures clean installation using package-lock.json
+# --only=production skips devDependencies like nodemon, eslint etc.
 RUN npm ci --only=production
 
-# Copy source code
+# Copy the rest of the application source code into the container
 COPY . .
 
-# Stage 2: Production
+
+# -----------------------------
+# Stage 2: Production Stage
+# -----------------------------
+
+# Start a fresh lightweight Node.js image
+# This keeps the final image smaller and cleaner
 FROM node:18-alpine
 
-# Set working directory
+# Set working directory again in the new image
 WORKDIR /app
 
-# Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Copy dependencies from builder
+# Copy installed dependencies from the builder stage
+# This avoids reinstalling npm packages again
 COPY --from=builder /app/node_modules ./node_modules
+
+# Copy the application source code from the builder stage
 COPY --from=builder /app ./
 
-# Set environment variables
+# Set environment variable for production mode
+# This improves performance and disables dev features
 ENV NODE_ENV=production
 
-# Expose port
-EXPOSE 5001
+# Tell Docker that the application listens on port 5000
+# (Actual port mapping happens during docker run)
+EXPOSE 5000
 
-# Switch to non-root user
-USER appuser
-
-# Start the server
+# Command that runs when the container starts
+# This executes "npm start" which should start your Node.js server
 CMD ["npm", "start"]
-
-# Health check
-#HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-#  CMD curl -f http://localhost:5001/health || exit 1
